@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 require 'active_support'
 require 'active_support/core_ext'
 require 'faraday'
@@ -11,31 +12,26 @@ module LeanMessage
 
   module_function
 
-  def setup(opts)
-    @opts = opts
-    [:app_id, :app_key].each{ |k| need_key!(@opts, k) }
-    @opts
+  attr_accessor :config, :conn, :master_conn
+
+  def setup(opts = {})
+    raise "config error" unless opts.is_a?(Hash)
+    [:app_id, :app_key].each do |key|
+      raise "Blank id: #{key}!" if opts[key].blank?
+    end
+    @config = opts
   end
 
-  def need_key!(opts, key)
-    raise "Blank id: #{key}!" if opts.is_a?(Hash) && opts[key].blank?
-  end
-
-  def config
-    @opts || {}
-  end
-
-  def get_conn
-    # todo
-    #conn = Faraday.new(BASE_URI, headers: default_headers) do |faraday|
-      #faraday.adapter Faraday.default_adapter
-      #faraday.response :json
-    #end
-    Faraday.new(BASE_URI, headers: default_headers)
+  def conn
+    @conn ||= begin
+                Faraday.new(BASE_URI, headers: default_headers)
+              end
   end
 
   def master_conn
-    Faraday.new(BASE_URI, headers: master_headers)
+    @master_conn ||= begin
+                       Faraday.new(BASE_URI, headers: master_headers)
+                     end
   end
 
   def default_headers
@@ -54,9 +50,15 @@ module LeanMessage
     }
   end
 
+  def create_user(username, opts = {})
+    body = {username: username}.merge(opts)
+    resp = conn.post 'users', body.to_json
+    JSON.parse(resp.body)
+  end
+
   def create_conv(members, opts = {})
     body = {m: members}.merge(opts)
-    resp = get_conn.post 'classes/_Conversation', body.to_json
+    resp = conn.post 'classes/_Conversation', body.to_json
     JSON.parse(resp.body)
   end
 
@@ -64,9 +66,9 @@ module LeanMessage
   def post_msg(conv_id, from, text, opts = {})
     msg = { _lctype: -1, _lctext: text }
     attrs = {from_peer: from, message: msg, conv_id: conv_id, transient: false}
-    resp = Lm.master_conn.post 'rtm/messages', attrs.to_json 
+    resp = Lm.master_conn.post 'rtm/messages', attrs.to_json
     JSON.parse(resp.body)
-  end 
+  end
 
   def get_messages(conv_id, opts = {})
     resp = Lm.master_conn.get 'rtm/messages/logs', {conv_id: conv_id, transient: false}
