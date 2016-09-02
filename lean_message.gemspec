@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
 
   spec.summary       = %q{LeanMessage for ruby.}
   spec.description   = spec.summary
-  spec.homepage      = "://github.com/cao7113"
+  spec.homepage      = "http://github.com/cao7113"
   spec.license       = "MIT"
 
   ## Prevent pushing this gem to RubyGems.org by setting 'allowed_push_host', or
