@@ -18,6 +18,7 @@ module LeanMessage
     opts = {}
     opts = yield(self) if block_given?
     raise "config error" unless opts.is_a?(Hash)
+    opts = ActiveSupport::HashWithIndifferentAccess(opts)
     [:app_id, :app_key].each do |key|
       raise "Blank id: #{key}!" if opts[key].blank?
     end
