@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 require 'active_support'
 require 'active_support/core_ext'
-require 'active_support/lib'
 require 'faraday'
 require 'faraday_middleware'
 
@@ -19,7 +18,7 @@ module LeanMessage
     opts = {}
     opts = yield(self) if block_given?
     raise "config error" unless opts.is_a?(Hash)
-    opts = ActiveSupport::HashWithIndifferentAccess(opts)
+    opts = ActiveSupport::HashWithIndifferentAccess.new(opts)
     [:app_id, :app_key].each do |key|
       raise "Blank id: #{key}!" if opts[key].blank?
     end
