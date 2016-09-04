@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 require 'active_support'
 require 'active_support/core_ext'
+require 'active_support/lib/active_support/hash_with_indifferent_access'
 require 'faraday'
 require 'faraday_middleware'
 
