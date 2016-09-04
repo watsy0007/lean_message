@@ -89,6 +89,13 @@ module LeanMessage
     JSON.parse(resp.body)
   end
 
+  def update_msg(is_read, read_time, opts = {})
+    return if opts.blank?
+    opts.merge(act_at: read_time.strftime('%Q'), act_ua: 'migrate') if is_read
+    resp = master_conn.post 'rtm/messages/logs', opts.to_json
+    JSON.parse(resp.body)
+  end
+
   def get_messages(conv_id, opts = {})
     resp = master_conn.get 'rtm/messages/logs', {convid: conv_id, transient: false}
     JSON.parse(resp.body)
