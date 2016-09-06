@@ -28,18 +28,23 @@ module LeanMessage
   def conn
     @conn ||= begin
                 puts default_headers
-                Faraday.new(BASE_URI, headers: default_headers)
+                Faraday.new(BASE_URI, headers: default_headers.merge(debug_headers))
               end
   end
 
   def master_conn
     @master_conn ||= begin
-                       Faraday.new(BASE_URI, headers: master_headers)
+                       Faraday.new(BASE_URI, headers: master_headers.merge(debug_headers))
                      end
   end
 
   def config
     @config ||= {}
+  end
+
+  def debug_headers
+    return {} if config[:debug_mode].blank?
+    {'X-LC-Prod' => 0}
   end
 
   def default_headers
