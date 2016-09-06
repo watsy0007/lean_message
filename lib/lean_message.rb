@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 require 'active_support'
 require 'active_support/core_ext'
 require 'faraday'
@@ -11,31 +12,39 @@ module LeanMessage
 
   module_function
 
-  def setup(opts)
-    @opts = opts
-    [:app_id, :app_key].each{ |k| need_key!(@opts, k) }
-    @opts
+  attr_accessor :config, :conn, :master_conn
+
+  def setup
+    opts = {}
+    opts = yield(self) if block_given?
+    raise "config error" unless opts.is_a?(Hash)
+    opts = ActiveSupport::HashWithIndifferentAccess.new(opts)
+    [:app_id, :app_key].each do |key|
+      raise "Blank id: #{key}!" if opts[key].blank?
+    end
+    @config = opts
   end
 
-  def need_key!(opts, key)
-    raise "Blank id: #{key}!" if opts.is_a?(Hash) && opts[key].blank?
-  end
-
-  def config
-    @opts || {}
-  end
-
-  def get_conn
-    # todo
-    #conn = Faraday.new(BASE_URI, headers: default_headers) do |faraday|
-      #faraday.adapter Faraday.default_adapter
-      #faraday.response :json
-    #end
-    Faraday.new(BASE_URI, headers: default_headers)
+  def conn
+    @conn ||= begin
+                puts default_headers
+                Faraday.new(BASE_URI, headers: default_headers.merge(debug_headers))
+              end
   end
 
   def master_conn
-    Faraday.new(BASE_URI, headers: master_headers)
+    @master_conn ||= begin
+                       Faraday.new(BASE_URI, headers: master_headers.merge(debug_headers))
+                     end
+  end
+
+  def config
+    @config ||= {}
+  end
+
+  def debug_headers
+    return {} if config[:debug_mode].blank?
+    {'X-LC-Prod' => 0}
   end
 
   def default_headers
@@ -54,9 +63,26 @@ module LeanMessage
     }
   end
 
-  def create_conv(members, opts = {})
-    body = {m: members}.merge(opts)
-    resp = get_conn.post 'classes/_Conversation', body.to_json
+  def create_user(username, password = '', opts = {})
+    body = {username: username, password: password}.merge(opts)
+    resp = conn.post 'users', body.to_json
+    JSON.parse(resp.body)
+  end
+
+  def users
+    resp = conn.get 'users'
+    JSON.parse(resp.body)
+  end
+
+  def create_conv(members, c = '', opts = {})
+    c = c.empty? ? '' : members[0]
+    body = {unique: true, m: members, c: c}.merge(opts)
+    resp = conn.post 'classes/_Conversation', body.to_json
+    JSON.parse(resp.body)
+  end
+
+  def conversations
+    resp = conn.get 'classes/_Conversation'
     JSON.parse(resp.body)
   end
 
@@ -64,24 +90,26 @@ module LeanMessage
   def post_msg(conv_id, from, text, opts = {})
     msg = { _lctype: -1, _lctext: text }
     attrs = {from_peer: from, message: msg, conv_id: conv_id, transient: false}
-    resp = Lm.master_conn.post 'rtm/messages', attrs.to_json 
+    resp = master_conn.post 'rtm/messages', attrs.to_json
     JSON.parse(resp.body)
-  end 
+  end
+
+  def update_msg(is_read, read_time, opts = {})
+    return if opts.blank?
+    opts.merge(act_at: read_time.strftime('%Q'), act_ua: 'migrate') if is_read
+    resp = master_conn.post 'rtm/messages/logs', opts.to_json
+    JSON.parse(resp.body)
+  end
 
   def get_messages(conv_id, opts = {})
-    resp = Lm.master_conn.get 'rtm/messages/logs', {conv_id: conv_id, transient: false}
+    resp = master_conn.get 'rtm/messages/logs', {convid: conv_id, transient: false}
     JSON.parse(resp.body)
   end
 
   def del_msg(conv_id, msgid, timestamp)
-    #curl -X DELETE \
-    #-G \
-    #--data-urlencode 'convid=219946ef32e40c515d33ae6975a5c593' \
-    #--data-urlencode 'msgid=PESlY' \
-    #--data-urlencode 'timestamp=1408008498571' \
     opts = {convid: conv_id, msgid: msgid, timestamp: timestamp}
-    Lm.master_conn.delete 'rtm/messages/logs', opts
+    master_conn.delete 'rtm/messages/logs', opts
   end
 end
 
-Lm = LeanMessage unless defined?(Lm)
+LM = LeanMessage unless defined?(LM)
