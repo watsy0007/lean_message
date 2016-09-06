@@ -64,7 +64,7 @@ module LeanMessage
   end
 
   def create_user(username, password = '', opts = {})
-    body = {username: username, password: password}.merge(opts)
+    body = {username: username.to_s, password: password.to_s}.merge(opts)
     resp = conn.post 'users', body.to_json
     JSON.parse(resp.body)
   end
