@@ -9,7 +9,6 @@ module LeanMessage
   #中国节点：https://api.leancloud.cn
   #美国节点：https://us-api.leancloud.cn
   BASE_URI = "https://api.leancloud.cn/#{API_VERSION}"
-
   module_function
 
   attr_accessor :config, :conn, :master_conn
@@ -26,16 +25,11 @@ module LeanMessage
   end
 
   def conn
-    @conn ||= begin
-                puts default_headers
-                Faraday.new(BASE_URI, headers: default_headers.merge(debug_headers))
-              end
+    Faraday.new(BASE_URI, headers: default_headers.merge(debug_headers))
   end
 
   def master_conn
-    @master_conn ||= begin
-                       Faraday.new(BASE_URI, headers: master_headers.merge(debug_headers))
-                     end
+    Faraday.new(BASE_URI, headers: master_headers.merge(debug_headers))
   end
 
   def config
@@ -44,7 +38,7 @@ module LeanMessage
 
   def debug_headers
     return {} if config[:debug_mode].blank?
-    {'X-LC-Prod' => 0}
+    {'X-LC-Prod' => '0'}
   end
 
   def default_headers
@@ -67,48 +61,117 @@ module LeanMessage
     body = {username: username.to_s, password: password.to_s}.merge(opts)
     resp = conn.post 'users', body.to_json
     JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def users
     resp = conn.get 'users'
     JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  end
+
+  def user(username)
+    resp = conn.get 'users', {where: {username: username}}
+    JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  end
+
+  def del_user(objectId)
+    resp = master_conn.delete "users/#{objectId}"
+    JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def create_conv(members, c = '', opts = {})
     c = c.empty? ? '' : members[0]
-    body = {unique: true, m: members, c: c}.merge(opts)
+    body = {unique: true, m: members.map(&:to_s), c: c.to_s}.merge(opts)
     resp = conn.post 'classes/_Conversation', body.to_json
     JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def conversations
     resp = conn.get 'classes/_Conversation'
     JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  end
+
+  def del_conv(objectId)
+    resp = master_conn.delete "classes/_Conversation/#{objectId}"
+    JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
   end
 
   # post normal msg
   def post_msg(conv_id, from, text, opts = {})
     msg = { _lctype: -1, _lctext: text }
-    attrs = {from_peer: from, message: msg, conv_id: conv_id, transient: false}
+    msg = msg.merge({_lcattrs: opts}) if opts.present?
+    attrs = {from_peer: from.to_s, message: msg, conv_id: conv_id, transient: false, no_sync: true}
     resp = master_conn.post 'rtm/messages', attrs.to_json
     JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def update_msg(is_read, read_time, opts = {})
     return if opts.blank?
-    opts.merge(act_at: read_time.strftime('%Q'), act_ua: 'migrate') if is_read
+    opts.merge(act_at: read_time.to_datetime.strftime('%Q'), act_ua: 'migrate') if is_read
     resp = master_conn.post 'rtm/messages/logs', opts.to_json
     JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def get_messages(conv_id, opts = {})
     resp = master_conn.get 'rtm/messages/logs', {convid: conv_id, transient: false}
     JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  end
+
+  def messages()
+    resp = master_conn.get 'rtm/messages/logs'
+    JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def del_msg(conv_id, msgid, timestamp)
     opts = {convid: conv_id, msgid: msgid, timestamp: timestamp}
     master_conn.delete 'rtm/messages/logs', opts
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
   end
 end
 
