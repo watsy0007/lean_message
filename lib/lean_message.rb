@@ -67,8 +67,9 @@ module LeanMessage
     retry
   end
 
-  def users
-    resp = conn.get 'users'
+  def users(opts = {})
+    opts = {where: opts} if opts.present?
+    resp = conn.get 'users', opts
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
     puts e
@@ -76,8 +77,11 @@ module LeanMessage
     retry
   end
 
-  def user(username)
-    resp = conn.get 'users', {where: {username: username}}
+  def user(opts = {})
+    query = {}
+    query.merge!({username: opts[:username]}) if opts[:username].present?
+    query.merge!({objectId: opts[:objectId]}) if opts[:objectId].present?
+    resp = conn.get 'users', {where: query }
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
     puts e
@@ -95,8 +99,7 @@ module LeanMessage
   end
 
   def create_conv(members, c = '', opts = {})
-    c = c.empty? ? '' : members[0]
-    body = {unique: true, m: members.map(&:to_s), c: c.to_s}.merge(opts)
+    body = {unique: true, m: members.map(&:to_s), c: c.to_s, tr: false, name: members.join('_'), mu: []}.merge(opts)
     resp = conn.post 'classes/_Conversation', body.to_json
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
@@ -105,8 +108,22 @@ module LeanMessage
     retry
   end
 
-  def conversations
-    resp = conn.get 'classes/_Conversation'
+  def conversations(opts = {})
+    opts = {where: opts} if opts.present?
+    resp = conn.get 'classes/_Conversation', opts
+    JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  end
+
+  def conversation(opts = {})
+    query = {}
+    query.merge!(m: opts[:m]) if opts[:m].present?
+    query.merge!(c: opts[:c]) if opts[:c].present?
+    query = { where: query }if query.present?
+    resp = conn.get 'classes/_Conversation', query
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
     puts e
@@ -138,8 +155,17 @@ module LeanMessage
 
   def update_msg(is_read, read_time, opts = {})
     return if opts.blank?
-    opts.merge(act_at: read_time.to_datetime.strftime('%Q'), act_ua: 'migrate') if is_read
-    resp = master_conn.post 'rtm/messages/logs', opts.to_json
+    opts.merge!('act-at' => read_time.to_datetime.strftime('%Q'), 'act-ua' => 'migrate') if is_read
+    resp = master_conn.put 'rtm/messages/logs', opts.to_json
+    JSON.parse(resp.body)
+  rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  end
+
+  def message(opts = {})
+    resp = master_conn.get 'rtm/messages/logs', opts
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
     puts e
@@ -156,8 +182,9 @@ module LeanMessage
     retry
   end
 
-  def messages()
-    resp = master_conn.get 'rtm/messages/logs'
+  def messages(opts = {})
+    opts = {where: opts} if opts.present?
+    resp = master_conn.get 'rtm/messages/logs', opts
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
     puts e
