@@ -106,6 +106,10 @@ module LeanMessage
     puts e
     sleep(1)
     retry
+  rescue JSON::ParserError => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def conversations(opts = {})
@@ -113,6 +117,10 @@ module LeanMessage
     resp = conn.get 'classes/_Conversation', opts
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  rescue JSON::ParserError => e
     puts e
     sleep(1)
     retry
@@ -151,6 +159,10 @@ module LeanMessage
     puts e
     sleep(1)
     retry
+  rescue JSON::ParserError => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def update_msg(is_read, read_time, opts = {})
@@ -159,6 +171,10 @@ module LeanMessage
     resp = master_conn.put 'rtm/messages/logs', opts.to_json
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  rescue JSON::ParserError => e
     puts e
     sleep(1)
     retry
@@ -171,12 +187,20 @@ module LeanMessage
     puts e
     sleep(1)
     retry
+  rescue JSON::ParserError => e
+    puts e
+    sleep(1)
+    retry
   end
 
   def get_messages(conv_id, opts = {})
     resp = master_conn.get 'rtm/messages/logs', {convid: conv_id, transient: false}
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  rescue JSON::ParserError => e
     puts e
     sleep(1)
     retry
@@ -187,6 +211,10 @@ module LeanMessage
     resp = master_conn.get 'rtm/messages/logs', opts
     JSON.parse(resp.body)
   rescue Faraday::ConnectionFailed => e
+    puts e
+    sleep(1)
+    retry
+  rescue JSON::ParserError => e
     puts e
     sleep(1)
     retry
